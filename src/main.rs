@@ -3,29 +3,44 @@ use clap::{App, Arg};
 use anyhow::Result;
 use simplelog::{TermLogger, LevelFilter, Config, TerminalMode, ColorChoice};
 use rwinreg::hive::Hive;
+use rwinreg::nk::NodeKey;
 use std::fs::File;
 
 struct RegLsApp {
     reg_file: File,
+    print_recursive: bool,
 }
 
 impl RegLsApp {
 
     pub fn new(file: File) -> Self {
         Self {
-            reg_file: file
+            reg_file: file,
+            print_recursive: false
         }
+    }
+    pub fn with_recursive(mut self, recursive: bool) -> Self {
+        self.print_recursive = recursive;
+        self
     }
     pub fn run(&mut self) -> Result<()> {
         let mut hive = Hive::from_source(&self.reg_file)?;
         let mut root = hive.get_root_node()?;
-
+        self.print_node(root, 0)?;
+        Ok(())
+    }
+    fn print_node(&mut self, mut node: NodeKey, level: usize) -> Result<()> {
+        let indent = "  ".repeat(level);
         loop {
-            let record = match root.get_next_key(&mut self.reg_file)? {
+            let record = match node.get_next_key(&mut self.reg_file)? {
                 None => {break;}
                 Some(node) => node
             };
-            println!("{}", record.key_name());
+            println!("{}{}", indent, record.key_name());
+
+            if self.print_recursive {
+                self.print_node(record, level + 1)?;
+            }
         }
         Ok(())
     }
@@ -40,7 +55,16 @@ impl RegLsApp {
                     .required(true)
                     .multiple(false)
                     .takes_value(true),
-            );
+            )
+            .arg(
+                Arg::with_name("RECURSIVE")
+                    .help("print recursively")
+                    .multiple(false)
+                    .takes_value(false)
+                    .short("R")
+                    .long("recursive")
+            )
+        ;
         let matches = app.get_matches();
 
 
@@ -53,7 +77,9 @@ impl RegLsApp {
             File::open(fp)?
         };
 
-        Ok(RegLsApp::new(reg_file))
+        Ok(RegLsApp::new(reg_file)
+            .with_recursive(matches.is_present("RECURSIVE"))
+        )
     }
 }
 
