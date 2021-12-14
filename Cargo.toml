@@ -15,4 +15,4 @@ anyhow = "1.0"
 simplelog = "0.10"
 chrono = "0.4"
 log = "0.4"
-rwinreg = { git = "https://github.com/janstarke/r-winreg.git", branch="feature/winstructs" }
+rwinreg = { git = "https://github.com/janstarke/r-winreg.git", branch="feature/winstructs", version="0.2.0-janstarke.2" }

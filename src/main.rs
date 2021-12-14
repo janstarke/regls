@@ -2,22 +2,34 @@ use std::path::PathBuf;
 use clap::{App, Arg};
 use anyhow::Result;
 use simplelog::{TermLogger, LevelFilter, Config, TerminalMode, ColorChoice};
+use rwinreg::hive::Hive;
+use std::fs::File;
 
 struct RegLsApp {
-    reg_file: PathBuf,
+    reg_file: File,
 }
 
 impl RegLsApp {
 
-    pub fn new() -> Self {
+    pub fn new(file: File) -> Self {
         Self {
-            reg_file: PathBuf::new()
+            reg_file: file
         }
     }
-    pub fn run(&self) -> Result<()> {
+    pub fn run(&mut self) -> Result<()> {
+        let mut hive = Hive::from_source(&self.reg_file)?;
+        let mut root = hive.get_root_node()?;
+
+        loop {
+            let record = match root.get_next_key(&mut self.reg_file)? {
+                None => {break;}
+                Some(node) => node
+            };
+            println!("{}", record.key_name());
+        }
         Ok(())
     }
-    fn parse_options(&mut self) -> Result<()> {
+    pub fn parse_options() -> Result<RegLsApp> {
         let app = App::new(env!("CARGO_PKG_NAME"))
             .version(env!("CARGO_PKG_VERSION"))
             .author(env!("CARGO_PKG_AUTHORS"))
@@ -35,13 +47,13 @@ impl RegLsApp {
         let filename = matches.value_of("REG_FILE").expect("missing hive filename");
 
         let fp = PathBuf::from(&filename);
-        if ! (fp.exists() && fp.is_file()) {
+        let reg_file = if ! (fp.exists() && fp.is_file()) {
             return Err(anyhow::Error::msg(format!("File {} does not exist", &filename)));
         } else {
-            self.reg_file = fp;
-        }
+            File::open(fp)?
+        };
 
-        Ok(())
+        Ok(RegLsApp::new(reg_file))
     }
 }
 
@@ -52,7 +64,6 @@ fn main() -> Result<()> {
         TerminalMode::Stderr,
         ColorChoice::Auto);
     
-    let mut app = RegLsApp::new();
-    app.parse_options()?;
+    let mut app = RegLsApp::parse_options()?;
     app.run()
 }
