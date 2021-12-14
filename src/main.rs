@@ -4,6 +4,7 @@ use anyhow::Result;
 use simplelog::{TermLogger, LevelFilter, Config, TerminalMode, ColorChoice};
 use rwinreg::hive::Hive;
 use rwinreg::nk::NodeKey;
+use rwinreg::vk::Data;
 use std::fs::File;
 
 struct RegLsApp {
@@ -107,7 +108,18 @@ impl RegLsApp {
                 Some(node) => node
             };
 
-            println!("{}{} = ", indent, value.get_name());
+            let data = match value.decode_data()? {
+                None => { "NONE".to_owned() }
+                Some(data) => {
+                    match data {
+                        Data::None => "NONE".to_owned(),
+                        Data::String(s) => s,
+                        Data::Int32(i) => i.to_string()
+
+                    }
+                }
+            };
+            println!("{}{} = {}", indent, value.get_name(), data);
 
         }
         Ok(())
